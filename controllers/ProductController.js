@@ -54,14 +54,18 @@ const getAllProducts = asyncHandler(async (req, res) => {
   if (category) {
     filter.category = category;
   }
-  if (size) {
-    filter.availableSizes = size;
-  }
-  if (color) {
-    filter.availableColors = { $regex: color, $options: "i" };
+  if (size || color) {
+    filter.variants = { $elemMatch: {} };
+    if (size) {
+      filter.variants.$elemMatch.size = size;
+    }
+    if (color) {
+      filter.variants.$elemMatch.color = color;
+    }
+    filter.variants.$elemMatch.quantity = { $gt: 0 };
   }
   if (quantity) {
-    filter.quantity = Number(quantity);
+    filter.totalQuantity = Number(quantity);
   }
   const pageNumber = Math.max(1, parseInt(page, 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
@@ -71,8 +75,8 @@ const getAllProducts = asyncHandler(async (req, res) => {
     await Promise.all([
       Product.find(filter).skip(skip).limit(pageSize),
       Product.countDocuments(filter),
-      Product.countDocuments({ ...filter, quantity: { $gt: 0 } }),
-      Product.countDocuments({ ...filter, quantity: { $eq: 0 } }),
+      Product.countDocuments({ ...filter, totalQuantity: { $gt: 0 } }),
+      Product.countDocuments({ ...filter, totalQuantity: { $eq: 0 } }),
     ]);
   const totalPages = Math.ceil(totalProducts / pageSize);
 
@@ -116,17 +120,27 @@ const getProductById = asyncHandler(async (req, res) => {
  * @access  Private
  */
 const createProduct = asyncHandler(async (req, res) => {
-  const { name, description, price, category, quantity } = req.body;
-  let { availableSizes, availableColors } = req.body;
+  const { name, description, price, category } = req.body;
+  let { variants } = req.body;
 
-  try {
-    availableSizes = JSON.parse(availableSizes);
-    availableColors = JSON.parse(availableColors);
-  } catch {
-    return res
-      .status(400)
-      .json({ message: "Invalid JSON format for sizes or colors" });
+  if (typeof variants === "string") {
+    try {
+      variants = JSON.parse(variants);
+    } catch {
+      return res
+        .status(400)
+        .json({ message: "Invalid JSON format for variants" });
+    }
   }
+
+  if (!Array.isArray(variants)) {
+    return res.status(400).json({ message: "Variants must be an array" });
+  }
+  const quantity = variants.reduce(
+    (total, variant) => total + variant.quantity,
+    0,
+  );
+
   const image = req.file ? req.file.path : undefined;
   const imagePublicId = req.file ? req.file.filename : undefined;
   const productData = {
@@ -134,9 +148,8 @@ const createProduct = asyncHandler(async (req, res) => {
     description,
     price,
     category,
-    quantity,
-    availableSizes,
-    availableColors,
+    totalQuantity: quantity,
+    variants,
     image,
     imagePublicId,
   };
@@ -154,10 +167,9 @@ const createProduct = asyncHandler(async (req, res) => {
     price,
     image,
     imagePublicId,
-    availableSizes,
-    availableColors,
+    variants,
     category,
-    quantity,
+    totalQuantity: quantity,
     status: quantity > 0 ? "In Stock" : "Out Of Stock",
   });
 
@@ -170,17 +182,27 @@ const createProduct = asyncHandler(async (req, res) => {
  * @access  Private
  */
 const updateProduct = asyncHandler(async (req, res) => {
-  const { name, description, price, category, quantity } = req.body;
-  let { availableColors, availableSizes } = req.body;
+  const { name, description, price, category } = req.body;
+  let { variants } = req.body;
 
-  try {
-    availableColors = JSON.parse(availableColors);
-    availableSizes = JSON.parse(availableSizes);
-  } catch {
-    return res
-      .status(400)
-      .json({ message: "Invalid JSON format for sizes or colors" });
+  if (typeof variants === "string") {
+    try {
+      variants = JSON.parse(variants);
+    } catch {
+      return res
+        .status(400)
+        .json({ message: "Invalid JSON format for variants" });
+    }
   }
+
+  if (!Array.isArray(variants)) {
+    return res.status(400).json({ message: "Variants must be an array" });
+  }
+
+  const quantity = variants.reduce(
+    (total, variant) => total + variant.quantity,
+    0,
+  );
 
   const image = req.file ? req.file.path : undefined;
   const imagePublicId = req.file ? req.file.filename : undefined;
@@ -190,9 +212,8 @@ const updateProduct = asyncHandler(async (req, res) => {
     description,
     price,
     category,
-    quantity,
-    availableSizes,
-    availableColors,
+    totalQuantity: quantity,
+    variants,
     image,
     imagePublicId,
   };
@@ -226,12 +247,11 @@ const updateProduct = asyncHandler(async (req, res) => {
         name,
         description,
         price,
-        image,
-        imagePublicId,
-        availableSizes,
-        availableColors,
+        image: image ? image : product.image,
+        imagePublicId: imagePublicId ? imagePublicId : product.imagePublicId,
+        variants,
         category,
-        quantity,
+        totalQuantity: quantity,
         status: quantity > 0 ? "In Stock" : "Out Of Stock",
       },
     },
@@ -239,8 +259,8 @@ const updateProduct = asyncHandler(async (req, res) => {
   );
   // Update the total in stock and out of stock counts
   const [totalInStock, totalOutOfStock] = await Promise.all([
-    Product.countDocuments({ quantity: { $gt: 0 } }),
-    Product.countDocuments({ quantity: { $eq: 0 } }),
+    Product.countDocuments({ totalQuantity: { $gt: 0 } }),
+    Product.countDocuments({ totalQuantity: { $eq: 0 } }),
   ]);
 
   res

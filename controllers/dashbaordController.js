@@ -49,8 +49,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       .populate("userId", "name email phone address")
       .populate("products.productId", "name price image"),
     Product.countDocuments(),
-    Product.countDocuments({ quantity: { $lt: 5, $gt: 0 } }),
-    Product.countDocuments({ quantity: { $eq: 0 } }),
+    Product.countDocuments({ totalQuantity: { $lt: 5, $gt: 0 } }),
+    Product.countDocuments({ totalQuantity: { $eq: 0 } }),
     Order.aggregate([
       { $unwind: "$products" },
       {

@@ -149,9 +149,15 @@ const updateOrder = asyncHandler(async (req, res) => {
       updateOne: {
         filter: {
           _id: product.productId._id || product.productId,
+          variants: {
+            $elemMatch: {
+              size: product.chosenSize,
+              color: product.chosenColor,
+            },
+          },
         },
         update: {
-          $inc: { quantity: product.quantity },
+          $inc: { "variants.$.quantity": product.quantity },
         },
       },
     }));
@@ -200,25 +206,37 @@ const updateOrder = asyncHandler(async (req, res) => {
  * @access  Private
  */
 const deleteOrder = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id);
-  if (!order) {
-    return res.status(404).json({ message: "Order not found" });
-  }
   const deletedOrder = await Order.findByIdAndDelete(req.params.id);
 
   if (!deletedOrder) {
     return res.status(404).json({ message: "Order not found" });
   }
 
-  if (deletedOrder.products && deletedOrder.products.length > 0) {
-    const updatedPromises = deletedOrder.products.map((product) =>
-      Product.findByIdAndUpdate(
-        product.productId,
-        { $inc: { quantity: product.quantity } },
-        { new: true },
-      ),
-    );
-    await Promise.all(updatedPromises);
+  if (
+    deletedOrder.status !== "cancelled" &&
+    deletedOrder.products &&
+    deletedOrder.products.length > 0
+  ) {
+    const bulkOperations = deletedOrder.products.map((product) => ({
+      updateOne: {
+        filter: {
+          _id: product.productId._id || product.productId,
+          variants: {
+            $elemMatch: {
+              size: product.chosenSize,
+              color: product.chosenColor,
+            },
+          },
+        },
+        update: {
+          $inc: { "variants.$.quantity": product.quantity },
+        },
+      },
+    }));
+
+    if (bulkOperations.length > 0) {
+      await Product.bulkWrite(bulkOperations);
+    }
   }
 
   res.status(200).json({
@@ -271,33 +289,33 @@ const createOrder = asyncHandler(async (req, res) => {
         .status(400)
         .json({ message: "Product information is incomplete" });
     }
-    const productExists = await Product.findById(product.productId);
+    const productExists = await Product.findOne(
+      { _id: product.productId || product.productId._id },
+      {
+        price: 1,
+        variants: {
+          $elemMatch: { size: product.chosenSize, color: product.chosenColor },
+        },
+      },
+    );
+
+    const matchedVariant = productExists?.variants?.[0];
     if (!productExists) {
       return res
         .status(404)
         .json({ message: `Product with id ${product.productId} not found` });
     }
-    if (product.quantity > productExists.quantity) {
+    if (!matchedVariant) {
+      return res.status(404).json({
+        message: `Variant with size ${product.chosenSize} and color ${product.chosenColor} not found for product with id ${product.productId}`,
+      });
+    }
+    if (product.quantity > matchedVariant.quantity) {
       return res.status(400).json({
         message: `Not enough stock for product with id ${product.productId}`,
       });
     }
-    if (
-      product.chosenSize &&
-      !productExists.availableSizes.includes(product.chosenSize)
-    ) {
-      return res.status(400).json({
-        message: `Chosen size ${product.chosenSize} is not available for product with id ${product.productId}`,
-      });
-    }
-    if (
-      product.chosenColor &&
-      !productExists.availableColors.includes(product.chosenColor)
-    ) {
-      return res.status(400).json({
-        message: `Chosen color ${product.chosenColor} is not available for product with id ${product.productId}`,
-      });
-    }
+
     totalprice += productExists.price * product.quantity;
   }
 
@@ -310,19 +328,23 @@ const createOrder = asyncHandler(async (req, res) => {
     status,
   });
 
-  await order.save();
-  const createdOrder = await order.populate([
-    { path: "userId", select: "name email phone address" },
-    { path: "products.productId", select: "name price image" },
-  ]);
-
   const bulkOperations = products.map((product) => ({
     updateOne: {
       filter: {
         _id: product.productId,
-        quantity: { $gte: product.quantity },
+        variants: {
+          $elemMatch: {
+            size: product.chosenSize,
+            color: product.chosenColor,
+            quantity: { $gte: product.quantity },
+          },
+        },
       },
-      update: { $inc: { quantity: -product.quantity } },
+      update: {
+        $inc: {
+          "variants.$.quantity": -product.quantity,
+        },
+      },
     },
   }));
 
@@ -334,6 +356,12 @@ const createOrder = asyncHandler(async (req, res) => {
     });
   }
 
+  await order.save();
+  const createdOrder = await order.populate([
+    { path: "userId", select: "name email phone address" },
+    { path: "products.productId", select: "name price image" },
+  ]);
+
   if (userId) {
     const productIds = createdOrder.products.map(
       (item) => item.productId || item.productId._id,
@@ -341,7 +369,7 @@ const createOrder = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
       userId,
       {
-        $push: {
+        $addToSet: {
           productsOrdered: { $each: productIds },
         },
       },

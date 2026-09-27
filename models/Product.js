@@ -31,31 +31,41 @@ const ProductSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
-    availableSizes: {
-      type: [String],
-      enum: ["S", "M", "L", "XL", "XXL", "XXXL"],
-      required: true,
-    },
-    availableColors: {
-      type: [String],
-      required: true,
-    },
+    variants: [
+      {
+        size: {
+          type: String,
+          enum: ["S", "M", "L", "XL", "XXL", "XXXL"],
+          required: true,
+        },
+        color: {
+          type: String,
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          min: 0,
+          default: 0,
+        },
+      },
+    ],
     category: {
       type: String,
       enum: ["T-Shirts", "Jackets", "Pants", "Hoodies", "Accessories", "Shoes"],
       required: true,
       trim: true,
     },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0,
-    },
+
     status: {
       type: String,
       enum: ["Out Of Stock", "In Stock"],
       default: "In Stock",
+    },
+    totalQuantity: {
+      type: Number,
+      min: 0,
+      default: 0,
     },
   },
   { timestamps: true },
@@ -69,17 +79,25 @@ const AddingProduct = (product) => {
     price: joi.number().min(0).required(),
     image: joi.string().trim(),
     imagePublicId: joi.string().trim(),
-    availableSizes: joi
+    variants: joi
       .array()
-      .items(joi.string().valid("S", "M", "L", "XL", "XXL", "XXXL"))
+      .items(
+        joi.object({
+          size: joi
+            .string()
+            .valid("S", "M", "L", "XL", "XXL", "XXXL")
+            .required(),
+          color: joi.string().trim().required(),
+          quantity: joi.number().min(0).default(0),
+        }),
+      )
       .required(),
-    availableColors: joi.array().items(joi.string().trim()).required(),
     category: joi
       .string()
       .trim()
       .valid("T-Shirts", "Jackets", "Pants", "Hoodies", "Accessories", "Shoes")
       .required(),
-    quantity: joi.number().min(0).default(0),
+    totalQuantity: joi.number().min(0).default(0),
     status: joi.string().valid("Out Of Stock", "In Stock").default("In Stock"),
   });
   const { error } = productValidationSchema.validate(product);
@@ -93,15 +111,24 @@ const UpdatingProduct = (product) => {
     price: joi.number().min(0),
     image: joi.string().trim(),
     imagePublicId: joi.string().trim(),
-    availableSizes: joi
+    variants: joi
       .array()
-      .items(joi.string().valid("S", "M", "L", "XL", "XXL", "XXXL")),
-    availableColors: joi.array().items(joi.string().trim()),
+      .items(
+        joi.object({
+          size: joi
+            .string()
+            .valid("S", "M", "L", "XL", "XXL", "XXXL")
+            .required(),
+          color: joi.string().trim().required(),
+          quantity: joi.number().min(0).default(0),
+        }),
+      )
+      .required(),
     category: joi
       .string()
       .trim()
       .valid("T-Shirts", "Jackets", "Pants", "Hoodies", "Accessories", "Shoes"),
-    quantity: joi.number().min(0).default(0),
+    totalQuantity: joi.number().min(0).default(0),
     status: joi.string().valid("Out Of Stock", "In Stock").default("In Stock"),
   });
   const { error } = productValidationSchema.validate(product);
