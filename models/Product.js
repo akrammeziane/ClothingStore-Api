@@ -115,6 +115,7 @@ const UpdatingProduct = (product) => {
       .array()
       .items(
         joi.object({
+          _id: joi.string().hex().length(24).optional(),
           size: joi
             .string()
             .valid("S", "M", "L", "XL", "XXL", "XXXL")
