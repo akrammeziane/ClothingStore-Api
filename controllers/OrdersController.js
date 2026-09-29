@@ -157,7 +157,10 @@ const updateOrder = asyncHandler(async (req, res) => {
           },
         },
         update: {
-          $inc: { "variants.$.quantity": product.quantity },
+          $inc: {
+            "variants.$.quantity": product.quantity,
+            totalQuantity: product.quantity,
+          },
         },
       },
     }));
@@ -229,7 +232,10 @@ const deleteOrder = asyncHandler(async (req, res) => {
           },
         },
         update: {
-          $inc: { "variants.$.quantity": product.quantity },
+          $inc: {
+            "variants.$.quantity": product.quantity,
+            totalQuantity: product.quantity,
+          },
         },
       },
     }));
@@ -343,6 +349,7 @@ const createOrder = asyncHandler(async (req, res) => {
       update: {
         $inc: {
           "variants.$.quantity": -product.quantity,
+          totalQuantity: -product.quantity,
         },
       },
     },
