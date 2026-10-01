@@ -10,19 +10,19 @@ require("dotenv").config();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(helmet());
+
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://clothing-store-nu-one.vercel.app/",
+  "https://clothing-store-nu-one.vercel.app",
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
+    origin(origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+        return callback(null, true);
       }
+      callback(new Error(`Not allowed by CORS: ${origin}`));
     },
   }),
 );
