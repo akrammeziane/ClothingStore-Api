@@ -10,7 +10,10 @@ require("dotenv").config();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(helmet());
-const allowedOrigins = ["http://localhost:5173"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://clothing-store-nu-one.vercel.app/",
+];
 
 app.use(
   cors({
