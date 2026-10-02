@@ -1,6 +1,5 @@
 const express = require("express");
 const app = express();
-const xss = require("xss-clean");
 const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const helmet = require("helmet");
@@ -31,7 +30,6 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(xss());
 
 //Security middlewares
 app.use(helmet());
