@@ -113,7 +113,7 @@ const editUser = asyncHandler(async (req, res) => {
   if (error) {
     return res.status(400).json({ message: error.details[0].message });
   }
-  const { name, email, phone, address } = req.body;
+  const { name, email, phone, address, isAdmin } = req.body;
 
   const emailExists = await User.exists({
     email,
@@ -136,7 +136,7 @@ const editUser = asyncHandler(async (req, res) => {
   }
   const updatedUser = await User.findByIdAndUpdate(
     req.params.id,
-    { $set: { name, email, phone, address } },
+    { $set: { name, email, phone, address, isAdmin } },
     { new: true, runValidators: true },
   );
   if (!updatedUser) {
