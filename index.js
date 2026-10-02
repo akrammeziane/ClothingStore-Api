@@ -25,9 +25,6 @@ app.use(
       }
       callback(null, false);
     },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 //Data parsing
