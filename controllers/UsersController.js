@@ -146,6 +146,33 @@ const editUser = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Edit user's Role (Admin only)
+ * @route   PUT /api/users/:id
+ * @access  Private
+ */
+const editUserRole = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id).select("-password");
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  const error = UpdatingUser(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+  const { isAdmin } = req.body;
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.params.id,
+    { $set: { isAdmin } },
+    { new: true, runValidators: true },
+  );
+  if (!updatedUser) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  res.status(200).json(updatedUser);
+});
+
+/**
  * @desc    Change user password
  * @route   PUT /api/users/:id/change-password
  * @access  Private
@@ -184,5 +211,6 @@ module.exports = {
   getUserById,
   deleteUser,
   editUser,
+  editUserRole,
   changePassword,
 };

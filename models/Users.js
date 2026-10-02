@@ -77,6 +77,7 @@ const UpdatingUser = (user) => {
       .max(15)
       .pattern(/^\+?[0-9]+$/),
     address: joi.string().min(5).max(200).trim(),
+    isAdmin: joi.boolean(),
   });
   const { error } = userValidationSchema.validate(user);
   return error;
