@@ -1,7 +1,10 @@
 const express = require("express");
 const app = express();
+const xss = require("xss-clean");
+const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const helmet = require("helmet");
+const hpp = require("hpp");
 const cors = require("cors");
 
 const { NotFound, VerifyErrors } = require("./middlewares/VerifyErrors");
@@ -9,7 +12,15 @@ require("dotenv").config();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(xss());
 app.use(helmet());
+app.use(hpp());
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+  }),
+);
 
 const allowedOrigins = [
   "http://localhost:5173",
