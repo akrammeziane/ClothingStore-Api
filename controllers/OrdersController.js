@@ -169,6 +169,36 @@ const updateOrder = asyncHandler(async (req, res) => {
       await Product.bulkWrite(bulkOperations);
     }
   }
+  if (previousStatus !== "delivered" && status === "delivered") {
+    const bulkOperations = updatedOrder.products.map((product) => ({
+      updateOne: {
+        filter: {
+          _id: product.productId,
+          variants: {
+            $elemMatch: {
+              size: product.chosenSize,
+              color: product.chosenColor,
+              quantity: { $gte: product.quantity },
+            },
+          },
+        },
+        update: {
+          $inc: {
+            "variants.$.quantity": -product.quantity,
+            totalQuantity: -product.quantity,
+          },
+        },
+      },
+    }));
+
+    const result = await Product.bulkWrite(bulkOperations);
+
+    if (result.modifiedCount !== updatedOrder.products.length) {
+      return res.status(400).json({
+        message: "Some products could not be updated due to insufficient stock",
+      });
+    }
+  }
   if (
     updatedOrder.userId &&
     status === "delivered" &&
@@ -333,35 +363,6 @@ const createOrder = asyncHandler(async (req, res) => {
     totalPrice: Number(totalprice.toFixed(2)),
     status,
   });
-
-  const bulkOperations = products.map((product) => ({
-    updateOne: {
-      filter: {
-        _id: product.productId,
-        variants: {
-          $elemMatch: {
-            size: product.chosenSize,
-            color: product.chosenColor,
-            quantity: { $gte: product.quantity },
-          },
-        },
-      },
-      update: {
-        $inc: {
-          "variants.$.quantity": -product.quantity,
-          totalQuantity: -product.quantity,
-        },
-      },
-    },
-  }));
-
-  const result = await Product.bulkWrite(bulkOperations);
-
-  if (result.modifiedCount !== products.length) {
-    return res.status(400).json({
-      message: "Some products could not be updated due to insufficient stock",
-    });
-  }
 
   await order.save();
   const createdOrder = await order.populate([
