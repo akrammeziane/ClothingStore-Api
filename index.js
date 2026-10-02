@@ -10,17 +10,7 @@ const cors = require("cors");
 const { NotFound, VerifyErrors } = require("./middlewares/VerifyErrors");
 require("dotenv").config();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(xss());
-app.use(helmet());
-app.use(hpp());
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-  }),
-);
+// CORS configuration
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -33,12 +23,30 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      callback(new Error(`Not allowed by CORS: ${origin}`));
+      callback(null, false);
     },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+//Data parsing
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(xss());
+
+//Security middlewares
+app.use(helmet());
+app.use(hpp());
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
   }),
 );
 
-//CALIING MIDDLEWARES
+//CALIING LOGGER MIDDLEWARE
 const logger = require("./middlewares/logger");
 app.use(logger);
 
@@ -54,10 +62,11 @@ app.use("/api/upload", require("./routes/uploadImages"));
 app.use("/api/admin", require("./routes/adminDashboard"));
 app.use("/api/password", require("./routes/ResetPassword"));
 
-// CALLING MIDDLEWARES
+// CALLING ERROR HANDLING MIDDLEWARES
 app.use(NotFound);
 app.use(VerifyErrors);
 
+// Start the server
 app.listen(process.env.PORT, () => {
   console.log("Server is running on port " + process.env.PORT);
 });
